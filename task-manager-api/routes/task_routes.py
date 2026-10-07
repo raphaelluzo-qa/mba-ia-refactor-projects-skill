@@ -3,8 +3,8 @@ from database import db
 from models.task import Task
 from models.user import User
 from models.category import Category
+from services.task_service import serialize_task, validate_task_payload
 from datetime import datetime
-import json, os, sys, time
 
 task_bp = Blueprint('tasks', __name__)
 
@@ -14,32 +14,9 @@ def get_tasks():
         tasks = Task.query.all()
         result = []
         for t in tasks:
-            task_data = {}
-            task_data['id'] = t.id
-            task_data['title'] = t.title
-            task_data['description'] = t.description
-            task_data['status'] = t.status
-            task_data['priority'] = t.priority
-            task_data['user_id'] = t.user_id
-            task_data['category_id'] = t.category_id
-            task_data['created_at'] = str(t.created_at)
-            task_data['updated_at'] = str(t.updated_at)
-            task_data['due_date'] = str(t.due_date) if t.due_date else None
-            task_data['tags'] = t.tags.split(',') if t.tags else []
-
-            if t.due_date:
-                if t.due_date < datetime.utcnow():
-                    if t.status != 'done' and t.status != 'cancelled':
-                        task_data['overdue'] = True
-                    else:
-                        task_data['overdue'] = False
-                else:
-                    task_data['overdue'] = False
-            else:
-                task_data['overdue'] = False
-
+            task_data = serialize_task(t)
             if t.user_id:
-                user = User.query.get(t.user_id)
+                user = db.session.get(User, t.user_id)
                 if user:
                     task_data['user_name'] = user.name
                 else:
@@ -48,7 +25,7 @@ def get_tasks():
                 task_data['user_name'] = None
 
             if t.category_id:
-                cat = Category.query.get(t.category_id)
+                cat = db.session.get(Category, t.category_id)
                 if cat:
                     task_data['category_name'] = cat.name
                 else:
@@ -59,33 +36,21 @@ def get_tasks():
             result.append(task_data)
 
         return jsonify(result), 200
-    except:
+    except Exception:
         return jsonify({'error': 'Erro interno'}), 500
 
 @task_bp.route('/tasks/<int:task_id>', methods=['GET'])
 def get_task(task_id):
-    task = Task.query.get(task_id)
+    task = db.session.get(Task, task_id)
     if task:
-        data = task.to_dict()
-
-        if task.due_date:
-            if task.due_date < datetime.utcnow():
-                if task.status != 'done' and task.status != 'cancelled':
-                    data['overdue'] = True
-                else:
-                    data['overdue'] = False
-            else:
-                data['overdue'] = False
-        else:
-            data['overdue'] = False
+        data = serialize_task(task)
         return jsonify(data), 200
     else:
         return jsonify({'error': 'Task não encontrada'}), 404
 
 @task_bp.route('/tasks', methods=['POST'])
 def create_task():
-    data = request.get_json()
-
+    data = request.get_json(silent=True)
     if not data:
         return jsonify({'error': 'Dados inválidos'}), 400
 
@@ -93,11 +58,9 @@ def create_task():
     if not title:
         return jsonify({'error': 'Título é obrigatório'}), 400
 
-    if len(title) < 3:
-        return jsonify({'error': 'Título muito curto'}), 400
-
-    if len(title) > 200:
-        return jsonify({'error': 'Título muito longo'}), 400
+    validation_error = validate_task_payload(data)
+    if validation_error:
+        return jsonify({'error': validation_error}), 400
 
     description = data.get('description', '')
     status = data.get('status', 'pending')
@@ -107,19 +70,13 @@ def create_task():
     due_date = data.get('due_date')
     tags = data.get('tags')
 
-    if status not in ['pending', 'in_progress', 'done', 'cancelled']:
-        return jsonify({'error': 'Status inválido'}), 400
-
-    if priority < 1 or priority > 5:
-        return jsonify({'error': 'Prioridade deve ser entre 1 e 5'}), 400
-
     if user_id:
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user:
             return jsonify({'error': 'Usuário não encontrado'}), 404
 
     if category_id:
-        cat = Category.query.get(category_id)
+        cat = db.session.get(Category, category_id)
         if not cat:
             return jsonify({'error': 'Categoria não encontrada'}), 404
 
@@ -134,7 +91,7 @@ def create_task():
     if due_date:
         try:
             task.due_date = datetime.strptime(due_date, '%Y-%m-%d')
-        except:
+        except ValueError:
             return jsonify({'error': 'Formato de data inválido. Use YYYY-MM-DD'}), 400
 
     if tags:
@@ -155,7 +112,7 @@ def create_task():
 
 @task_bp.route('/tasks/<int:task_id>', methods=['PUT'])
 def update_task(task_id):
-    task = Task.query.get(task_id)
+    task = db.session.get(Task, task_id)
     if not task:
         return jsonify({'error': 'Task não encontrada'}), 404
 
@@ -185,14 +142,14 @@ def update_task(task_id):
 
     if 'user_id' in data:
         if data['user_id']:
-            user = User.query.get(data['user_id'])
+            user = db.session.get(User, data['user_id'])
             if not user:
                 return jsonify({'error': 'Usuário não encontrado'}), 404
         task.user_id = data['user_id']
 
     if 'category_id' in data:
         if data['category_id']:
-            cat = Category.query.get(data['category_id'])
+            cat = db.session.get(Category, data['category_id'])
             if not cat:
                 return jsonify({'error': 'Categoria não encontrada'}), 404
         task.category_id = data['category_id']
@@ -201,7 +158,7 @@ def update_task(task_id):
         if data['due_date']:
             try:
                 task.due_date = datetime.strptime(data['due_date'], '%Y-%m-%d')
-            except:
+            except ValueError:
                 return jsonify({'error': 'Formato de data inválido'}), 400
         else:
             task.due_date = None
@@ -224,7 +181,7 @@ def update_task(task_id):
 
 @task_bp.route('/tasks/<int:task_id>', methods=['DELETE'])
 def delete_task(task_id):
-    task = Task.query.get(task_id)
+    task = db.session.get(Task, task_id)
     if not task:
         return jsonify({'error': 'Task não encontrada'}), 404
 

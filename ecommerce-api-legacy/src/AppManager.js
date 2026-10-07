@@ -1,10 +1,12 @@
 const sqlite3 = require('sqlite3').verbose();
-const { config, logAndCache, badCrypto, totalRevenue } = require('./utils');
+const { logAndCache } = require('./utils');
+const CheckoutService = require('./services/checkoutService');
 
 class AppManager {
     constructor() {
 
         this.db = new sqlite3.Database(':memory:');
+        this.checkout = new CheckoutService(this.db, require('./repositories/courseRepository'));
     }
 
     initDb() {
@@ -26,54 +28,10 @@ class AppManager {
         const self = this;
 
         app.post('/api/checkout', (req, res) => {
-            let u = req.body.usr;
-            let e = req.body.eml;
-            let p = req.body.pwd;
-            let cid = req.body.c_id;
-            let cc = req.body.card;
-
-            if (!u || !e || !cid || !cc) return res.status(400).send("Bad Request");
-
-            this.db.get("SELECT * FROM courses WHERE id = ? AND active = 1", [cid], (err, course) => {
-                if (err || !course) return res.status(404).send("Curso não encontrado");
-
-                this.db.get("SELECT id FROM users WHERE email = ?", [e], (err, user) => {
-                    if (err) return res.status(500).send("Erro DB");
-
-                    let processPaymentAndEnroll = (userId) => {
-
-                        console.log(`Processando cartão ${cc} na chave ${config.paymentGatewayKey}`);
-                        let status = cc.startsWith("4") ? "PAID" : "DENIED";
-
-                        if (status === "DENIED") return res.status(400).send("Pagamento recusado");
-
-                        this.db.run("INSERT INTO enrollments (user_id, course_id) VALUES (?, ?)", [userId, cid], function(err) {
-                            if (err) return res.status(500).send("Erro Matrícula");
-                            let enrId = this.lastID;
-
-                            self.db.run("INSERT INTO payments (enrollment_id, amount, status) VALUES (?, ?, ?)", [enrId, course.price, status], function(err) {
-                                if (err) return res.status(500).send("Erro Pagamento");
-
-                                self.db.run("INSERT INTO audit_logs (action, created_at) VALUES (?, datetime('now'))", [`Checkout curso ${cid} por ${userId}`], (err) => {
-                                    
-                                    logAndCache(`last_checkout_${userId}`, course.title);
-                                    res.status(200).json({ msg: "Sucesso", enrollment_id: enrId });
-                                });
-                            });
-                        });
-                    };
-
-                    if (!user) {
-
-                        let hash = badCrypto(p || "123456");
-                        this.db.run("INSERT INTO users (name, email, pass) VALUES (?, ?, ?)", [u, e, hash], function(err) {
-                            if (err) return res.status(500).send("Erro ao criar usuário");
-                            processPaymentAndEnroll(this.lastID);
-                        });
-                    } else {
-                        processPaymentAndEnroll(user.id);
-                    }
-                });
+            this.checkout.checkout({ name: req.body.usr, email: req.body.eml, password: req.body.pwd, courseId: req.body.c_id, card: req.body.card }, (error, result) => {
+                if (error) return res.status(error.status).send(error.message);
+                logAndCache(`last_checkout_${result.enrollment_id}`, result.msg);
+                return res.status(200).json(result);
             });
         });
 
