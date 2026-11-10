@@ -1,11 +1,13 @@
+import os
+import secrets
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import controllers
 from database import get_db
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "minha-chave-super-secreta-123"
-app.config["DEBUG"] = True
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+app.config["DEBUG"] = os.environ.get("FLASK_DEBUG", "").strip().lower() in {"1", "true", "yes"}
 CORS(app)
 
 app.add_url_rule("/produtos", "listar_produtos", controllers.listar_produtos, methods=["GET"])
@@ -85,4 +87,4 @@ if __name__ == "__main__":
     print("Rodando em http://localhost:5000")
     print("=" * 50)
 
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=app.config["DEBUG"])

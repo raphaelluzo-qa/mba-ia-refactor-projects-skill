@@ -1,8 +1,10 @@
+const { hashPassword } = require('../utils');
+
 class CheckoutService {
   constructor(db, CourseRepository) { this.db = db; this.courses = new CourseRepository(db); }
   checkout(input, callback) {
     const { name, email, password, courseId, card } = input;
-    if (!name || !email || !courseId || !card) return callback({ status: 400, message: 'Bad Request' });
+    if (!name || !email || typeof password !== 'string' || !courseId || !card) return callback({ status: 400, message: 'Bad Request' });
     this.courses.findActive(courseId, (err, course) => {
       if (err || !course) return callback({ status: 404, message: 'Curso não encontrado' });
       this.db.get('SELECT id FROM users WHERE email = ?', [email], (userErr, user) => {
@@ -21,7 +23,7 @@ class CheckoutService {
           });
         };
         if (user) return finish(user.id);
-        this.db.run('INSERT INTO users (name, email, pass) VALUES (?, ?, ?)', [name, email, password || '123456'], function (createErr) {
+        this.db.run('INSERT INTO users (name, email, pass) VALUES (?, ?, ?)', [name, email, hashPassword(password)], function (createErr) {
           if (createErr) return callback({ status: 500, message: 'Erro ao criar usuário' });
           finish(this.lastID);
         }.bind(this));

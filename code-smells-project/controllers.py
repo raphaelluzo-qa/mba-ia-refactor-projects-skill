@@ -1,4 +1,4 @@
-from flask import request, jsonify
+from flask import request, jsonify, current_app
 import models
 from database import get_db
 
@@ -281,12 +281,9 @@ def health_check():
                 "usuarios": usuarios,
                 "pedidos": pedidos
             },
-
             "versao": "1.0.0",
-            "ambiente": "producao",
-            "db_path": "loja.db",
-            "debug": True,
-            "secret_key": "minha-chave-super-secreta-123"
+            "ambiente": "producao"
         }), 200
-    except Exception as e:
-        return jsonify({"status": "erro", "detalhes": str(e)}), 500
+    except Exception:
+        current_app.logger.exception("Health check failed")
+        return jsonify({"status": "erro"}), 500
