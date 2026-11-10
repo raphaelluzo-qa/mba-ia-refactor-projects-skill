@@ -42,11 +42,13 @@ After approval, refactor in small reversible changes:
 
 1. Keep routes/controllers responsible for transport concerns only.
 2. Move domain rules to services and persistence to repositories/models.
-3. Move configuration and secrets to environment-backed settings with safe defaults.
+3. Move configuration and secrets to environment-backed settings with safe defaults. Use the patterns in [the transformation playbook](references/transformation-playbook.md); never replace a committed secret with another fixed value or a success-shaped placeholder.
 4. Preserve all existing endpoint paths, verbs, status codes, and response keys unless an approved migration explicitly says otherwise.
 5. Use framework-supported APIs and remove deprecated calls.
-6. Validate syntax, boot, health checks, and every endpoint captured in Phase 1. Exercise both success and representative validation/not-found failures.
-7. Record commands, exit codes, response evidence, and remaining known limitations in the final report.
+6. Map every approved Phase 2 finding and its concrete remediation to a code change and a verification check. Apply each actionable recommendation; if it cannot be applied, leave it `Open` or `Deferred` with a reason and do not describe it as resolved.
+7. Validate syntax, boot, health checks, and every endpoint captured in Phase 1. Exercise both success and representative validation/not-found failures, and confirm the original endpoint contract.
+8. Recheck source, logs, health responses, and reports for exposed credentials or sensitive configuration. Never copy secret values into reports, examples, logs, or test output.
+9. Record commands, exit codes, response evidence, finding dispositions, and remaining known limitations in the final report. Mark a finding `Resolved` only when the code no longer has the cited behavior and the relevant check passes.
 
 ## Required report template
 
@@ -63,3 +65,4 @@ After approval, refactor in small reversible changes:
 Human approval: <name/date or pending>
 ```
 
+The report's final finding status must match the verified implementation, not just the intended recommendation. Include the before/after evidence and any deferred work.

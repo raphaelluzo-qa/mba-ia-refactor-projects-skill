@@ -10,3 +10,5 @@ python app.py
 ```
 
 A aplicação sobe em `http://localhost:5000`. O banco SQLite (`loja.db`) é criado automaticamente no primeiro boot, já com produtos e usuários de exemplo.
+
+Defina `SECRET_KEY` por ambiente ou gerenciador de segredos em implantações que precisem de sessões estáveis. Sem essa variável, cada processo usa uma chave aleatória adequada apenas para desenvolvimento local. O modo debug permanece desativado por padrão; use `FLASK_DEBUG=true` somente em desenvolvimento.
