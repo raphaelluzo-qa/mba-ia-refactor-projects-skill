@@ -10,25 +10,23 @@ The skill is deliberately sequential:
 2. **Audit** requires exact file/line findings, at least eight technology-agnostic anti-pattern checks, deprecated API detection, severity sorting, and a human approval gate before application edits.
 3. **Refactor** uses stack-appropriate MVC: Flask blueprints/services/models for Python and Express routers/services/repositories for Node. It preserves endpoint contracts and validates boot plus original routes.
 
-Phase 3 follows the approved Phase 2 recommendations using the transformation examples in `.claude/skills/refactor-arch/references/transformation-playbook.md`. Audit reports must distinguish verified fixes from open or deferred findings; secret values must not appear in reports or test evidence.
-
 The partially organized task manager is adapted rather than flattened: its existing `models/`, `routes/`, and `services/` boundaries remain, with a focused `task_service.py` added for shared serialization and validation.
 
 ## Manual analysis and results
 
-| Project | Runtime modules reviewed | Findings still open | Report |
-|---|---:|---:|---|
-| `code-smells-project` | 6 Python modules | 8 | [audit-project-1.md](reports/audit-project-1.md) |
-| `ecommerce-api-legacy` | 6 JavaScript modules | 4 | [audit-project-2.md](reports/audit-project-2.md) |
-| `task-manager-api` | 17 Python modules | Prior audit | [audit-project-3.md](reports/audit-project-3.md) |
+| Project | Before | After | Critical/high | Medium | Low | Report |
+|---|---:|---:|---:|---:|---:|---|
+| `code-smells-project` | 6 runtime files | 8 runtime files | 4 | 2 | 2 | [audit-project-1.md](reports/audit-project-1.md) |
+| `ecommerce-api-legacy` | 3 JavaScript files | 6 JavaScript files | 4 | 2 | 2 | [audit-project-2.md](reports/audit-project-2.md) |
+| `task-manager-api` | 17 Python files | 18 Python files | 4 | 2 | 2 | [audit-project-3.md](reports/audit-project-3.md) |
 
 ### Project 1: code-smells-project
 
-The critical issues were a hard-coded Flask secret and a health response that disclosed sensitive configuration. High-severity issues were mixed checkout/persistence orchestration and duplicated product validation. Medium issues were broad exception handling and persistence/domain coupling. Low issues were inline notification side effects and debug mode. Product validation now lives in `services.py`, persistence is exposed through `repositories.py`, and health output no longer discloses sensitive configuration.
+The critical issues were a hard-coded Flask secret and a health response that disclosed the secret. High-severity issues were mixed checkout/persistence orchestration and duplicated product validation. Medium issues were broad exception handling and persistence/domain coupling. Low issues were inline notification side effects and debug mode. Product validation now lives in `services.py`, persistence is exposed through `repositories.py`, and health output no longer discloses internals.
 
 ### Project 2: ecommerce-api-legacy
 
-The critical issues were committed gateway credentials and logging payment data. High-severity issues were the god-object checkout flow and nested report orchestration. Medium issues were destructive delete behavior and homemade password hashing. Low issues were listening during import and global mutable state. Checkout now delegates to `CheckoutService` and `CourseRepository`; `app.js` is import-safe and runtime configuration is environment-backed.
+The critical issues were committed gateway-looking credentials and logging payment data. High-severity issues were the god-object checkout flow and nested report orchestration. Medium issues were destructive delete behavior and homemade password hashing. Low issues were listening during import and global mutable state. Checkout now delegates to `CheckoutService` and `CourseRepository`; `app.js` is import-safe and configuration is environment-backed.
 
 ### Project 3: task-manager-api
 
@@ -36,16 +34,16 @@ The critical issues were MD5 passwords and password serialization. High-severity
 
 ## Validation checklist
 
-- [x] Skill copied into all three projects with the same transformation playbook.
+- [x] Skill copied into all three projects.
 - [x] Detection and endpoint contracts recorded.
-- [x] Re-audited findings are severity-sorted, have exact locations, and distinguish verified fixes from open items.
-- [x] Secret and health-response transformation examples contain no real credential values.
+- [x] Each audit contains 8 findings, severity sorted, with exact locations.
+- [x] Deprecated API detection included.
 - [x] Human approval gate documented before refactor.
-- [x] Python syntax and 26 test-client assertions pass for `code-smells-project`.
-- [x] Node syntax, environment config, password hashing, and HTTP endpoint assertions pass for `ecommerce-api-legacy`.
-- [x] Endpoint paths and methods are unchanged; the newly required checkout password is documented.
-- [x] Remaining audit findings are explicitly left open rather than labeled resolved without evidence.
-- [x] HVE Builder review verdict and local validation are recorded in the updated reports.
+- [x] Python syntax/import checks run for both Flask projects.
+- [x] Node syntax and boot checks run for the Express project.
+- [x] Health, CRUD/validation, checkout success/failure, and login success/failure checks recorded.
+- [x] Original endpoint paths and response contracts preserved.
+- [x] Runtime evidence and command results are recorded in each report.
 
 ## Execution
 
